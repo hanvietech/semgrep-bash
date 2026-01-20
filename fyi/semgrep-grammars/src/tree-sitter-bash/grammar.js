@@ -104,14 +104,33 @@ module.exports = grammar({
       $.function_definition
     ),
 
-    redirected_statement: $ => prec(-1, seq(
-      field('body', $._statement),
-      field('redirect', repeat1(choice(
+    _xstatement: $ => choice(
+      $.declaration_command,
+      $.unset_command,
+      $.test_command,
+      $.negated_command,
+      $.for_statement,
+      $.c_style_for_statement,
+      $.while_statement,
+      $.if_statement,
+      $.case_statement,
+      $.pipeline,
+      $.list,
+      $.subshell,
+      $.compound_statement,
+      $.function_definition
+    ),
+
+    redirect: $ => choice(
         $.file_redirect,
         $.heredoc_redirect,
         $.herestring_redirect
-      )))
-    )),
+    ),
+      
+    redirected_statement: $ => prec(-1, seq(
+      field('body', $._xstatement),
+      field('redirect', repeat1($.redirect)
+    ))),
 
     for_statement: $ => seq(
       choice('for', 'select'),
@@ -294,6 +313,7 @@ module.exports = grammar({
       )),
       field('name', $.command_name),
       repeat(field('argument', choice(
+        $.redirect,
         $._literal,
         seq(
           choice('=~', '=='),

@@ -74,11 +74,6 @@ type extended_word = [
   | `Word of word (*tok*)
 ]
 
-type heredoc_redirect = (
-    [ `LTLT of Token.t (* "<<" *) | `LTLTDASH of Token.t (* "<<-" *) ]
-  * heredoc_start (*tok*)
-)
-
 type orig_simple_variable_name = pat_42e353e
 
 type simple_variable_name = [
@@ -149,6 +144,19 @@ and binary_expression = [
     )
 ]
 
+and c_style_for_statement = (
+    Token.t (* "for" *)
+  * Token.t (* "((" *)
+  * expression option
+  * terminator
+  * expression option
+  * terminator
+  * expression option
+  * Token.t (* "))" *)
+  * Token.t (* ";" *) option
+  * [ `Do_group of do_group | `Comp_stmt of compound_statement ]
+)
+
 and case_item = (
     literal
   * (Token.t (* "|" *) * literal) list (* zero or more *)
@@ -163,12 +171,23 @@ and case_item = (
     ]
 )
 
+and case_statement = (
+    Token.t (* "case" *)
+  * literal
+  * terminator option
+  * Token.t (* "in" *)
+  * terminator
+  * (case_item list (* zero or more *) * last_case_item) option
+  * Token.t (* "esac" *)
+)
+
 and command = (
     [ `Var_assign of variable_assignment | `File_redi of file_redirect ]
       list (* zero or more *)
   * command_name
   * [
-        `Choice_conc of literal
+        `Redi of redirect
+      | `Choice_conc of literal
       | `Choice_EQTILDE_choice_choice_conc of (
             [ `EQTILDE of Token.t (* "=~" *) | `EQEQ of Token.t (* "==" *) ]
           * [ `Choice_conc of literal | `Regex of regex (*tok*) ]
@@ -205,6 +224,22 @@ and concatenation = (
     anon_choice_prim_exp_65e2c2e
   * (concat (*tok*) * anon_choice_prim_exp_65e2c2e) list (* one or more *)
   * (concat (*tok*) * Token.t (* "$" *)) option
+)
+
+and declaration_command = (
+    [
+        `Decl of Token.t (* "declare" *)
+      | `Type of Token.t (* "typeset" *)
+      | `Export of Token.t (* "export" *)
+      | `Read of Token.t (* "readonly" *)
+      | `Local of Token.t (* "local" *)
+    ]
+  * [
+        `Choice_conc of literal
+      | `Choice_semg_meta of simple_variable_name
+      | `Var_assign of variable_assignment
+    ]
+      list (* zero or more *)
 )
 
 and do_group = (
@@ -288,6 +323,32 @@ and file_redirect = (
   * literal
 )
 
+and for_statement = (
+    [ `For of Token.t (* "for" *) | `Select of Token.t (* "select" *) ]
+  * simple_variable_name
+  * (Token.t (* "in" *) * literal list (* one or more *)) option
+  * terminator
+  * do_group
+)
+
+and function_definition = (
+    [
+        `Func_exte_word_opt_LPAR_RPAR of (
+            Token.t (* "function" *)
+          * extended_word
+          * (Token.t (* "(" *) * Token.t (* ")" *)) option
+        )
+      | `Word_LPAR_RPAR of (
+            word (*tok*) * Token.t (* "(" *) * Token.t (* ")" *)
+        )
+    ]
+  * [
+        `Comp_stmt of compound_statement
+      | `Subs of subshell
+      | `Test_cmd of test_command
+    ]
+)
+
 and heredoc_body = [
     `Simple_here_body of simple_heredoc_body (*tok*)
   | `Here_body_begin_rep_choice_expa_here_body_end of (
@@ -303,7 +364,15 @@ and heredoc_body = [
     )
 ]
 
-and herestring_redirect = (Token.t (* "<<<" *) * literal)
+and if_statement = (
+    Token.t (* "if" *)
+  * terminated_statement
+  * Token.t (* "then" *)
+  * statements2 option
+  * elif_clause list (* zero or more *)
+  * else_clause option
+  * Token.t (* "fi" *)
+)
 
 and last_case_item = (
     literal
@@ -313,11 +382,28 @@ and last_case_item = (
   * Token.t (* ";;" *) option
 )
 
+and list_ = (
+    statement
+  * [ `AMPAMP of Token.t (* "&&" *) | `BARBAR of Token.t (* "||" *) ]
+  * statement
+)
+
 and literal = [
     `Conc of concatenation
   | `Choice_semg_deep_exp of primary_expression
   | `Rep1_spec_char of special_character (*tok*) list (* one or more *)
 ]
+
+and negated_command = (
+    Token.t (* "!" *)
+  * [ `Cmd of command | `Test_cmd of test_command | `Subs of subshell ]
+)
+
+and pipeline = (
+    statement
+  * [ `BAR of Token.t (* "|" *) | `BARAMP of Token.t (* "|&" *) ]
+  * statement
+)
 
 and primary_expression = [
     `Semg_deep_exp of (Token.t (* "<..." *) * literal * Token.t (* "...>" *))
@@ -342,116 +428,33 @@ and process_substitution = (
 
 and program = statements option
 
-and statement = [
-    `Redi_stmt of (
-        statement
-      * [
-            `File_redi of file_redirect
-          | `Here_redi_a9657de of heredoc_redirect
-          | `Here_redi_7d3292d of herestring_redirect
-        ]
-          list (* one or more *)
+and redirect = [
+    `File_redi of file_redirect
+  | `Here_redi_a9657de of (
+        [ `LTLT of Token.t (* "<<" *) | `LTLTDASH of Token.t (* "<<-" *) ]
+      * heredoc_start (*tok*)
     )
+  | `Here_redi_7d3292d of (Token.t (* "<<<" *) * literal)
+]
+
+and statement = [
+    `Redi_stmt of (xstatement * redirect list (* one or more *))
   | `Var_assign of variable_assignment
   | `Cmd of command
-  | `Decl_cmd of (
-        [
-            `Decl of Token.t (* "declare" *)
-          | `Type of Token.t (* "typeset" *)
-          | `Export of Token.t (* "export" *)
-          | `Read of Token.t (* "readonly" *)
-          | `Local of Token.t (* "local" *)
-        ]
-      * [
-            `Choice_conc of literal
-          | `Choice_semg_meta of simple_variable_name
-          | `Var_assign of variable_assignment
-        ]
-          list (* zero or more *)
-    )
-  | `Unset_cmd of (
-        [
-            `Unset of Token.t (* "unset" *)
-          | `Unse of Token.t (* "unsetenv" *)
-        ]
-      * [
-            `Choice_conc of literal
-          | `Choice_semg_meta of simple_variable_name
-        ]
-          list (* zero or more *)
-    )
+  | `Decl_cmd of declaration_command
+  | `Unset_cmd of unset_command
   | `Test_cmd of test_command
-  | `Nega_cmd of (
-        Token.t (* "!" *)
-      * [ `Cmd of command | `Test_cmd of test_command | `Subs of subshell ]
-    )
-  | `For_stmt of (
-        [ `For of Token.t (* "for" *) | `Select of Token.t (* "select" *) ]
-      * simple_variable_name
-      * (Token.t (* "in" *) * literal list (* one or more *)) option
-      * terminator
-      * do_group
-    )
-  | `C_style_for_stmt of (
-        Token.t (* "for" *)
-      * Token.t (* "((" *)
-      * expression option
-      * terminator
-      * expression option
-      * terminator
-      * expression option
-      * Token.t (* "))" *)
-      * Token.t (* ";" *) option
-      * [ `Do_group of do_group | `Comp_stmt of compound_statement ]
-    )
-  | `While_stmt of (Token.t (* "while" *) * terminated_statement * do_group)
-  | `If_stmt of (
-        Token.t (* "if" *)
-      * terminated_statement
-      * Token.t (* "then" *)
-      * statements2 option
-      * elif_clause list (* zero or more *)
-      * else_clause option
-      * Token.t (* "fi" *)
-    )
-  | `Case_stmt of (
-        Token.t (* "case" *)
-      * literal
-      * terminator option
-      * Token.t (* "in" *)
-      * terminator
-      * (case_item list (* zero or more *) * last_case_item) option
-      * Token.t (* "esac" *)
-    )
-  | `Pipe of (
-        statement
-      * [ `BAR of Token.t (* "|" *) | `BARAMP of Token.t (* "|&" *) ]
-      * statement
-    )
-  | `List of (
-        statement
-      * [ `AMPAMP of Token.t (* "&&" *) | `BARBAR of Token.t (* "||" *) ]
-      * statement
-    )
+  | `Nega_cmd of negated_command
+  | `For_stmt of for_statement
+  | `C_style_for_stmt of c_style_for_statement
+  | `While_stmt of while_statement
+  | `If_stmt of if_statement
+  | `Case_stmt of case_statement
+  | `Pipe of pipeline
+  | `List of list_
   | `Subs of subshell
   | `Comp_stmt of compound_statement
-  | `Func_defi of (
-        [
-            `Func_exte_word_opt_LPAR_RPAR of (
-                Token.t (* "function" *)
-              * extended_word
-              * (Token.t (* "(" *) * Token.t (* ")" *)) option
-            )
-          | `Word_LPAR_RPAR of (
-                word (*tok*) * Token.t (* "(" *) * Token.t (* ")" *)
-            )
-        ]
-      * [
-            `Comp_stmt of compound_statement
-          | `Subs of subshell
-          | `Test_cmd of test_command
-        ]
-    )
+  | `Func_defi of function_definition
 ]
 
 and statements = (
@@ -513,6 +516,12 @@ and test_command = [
     )
 ]
 
+and unset_command = (
+    [ `Unset of Token.t (* "unset" *) | `Unse of Token.t (* "unsetenv" *) ]
+  * [ `Choice_conc of literal | `Choice_semg_meta of simple_variable_name ]
+      list (* zero or more *)
+)
+
 and variable_assignment = [
     `Choice_semg_meta_eq_choice_choice_conc of (
         [
@@ -528,7 +537,33 @@ and variable_assignment = [
     )
 ]
 
+and while_statement = (
+    Token.t (* "while" *) * terminated_statement * do_group
+)
+
+and xstatement = [
+    `Decl_cmd of declaration_command
+  | `Unset_cmd of unset_command
+  | `Test_cmd of test_command
+  | `Nega_cmd of negated_command
+  | `For_stmt of for_statement
+  | `C_style_for_stmt of c_style_for_statement
+  | `While_stmt of while_statement
+  | `If_stmt of if_statement
+  | `Case_stmt of case_statement
+  | `Pipe of pipeline
+  | `List of list_
+  | `Subs of subshell
+  | `Comp_stmt of compound_statement
+  | `Func_defi of function_definition
+]
+
 type comment (* inlined *) = Token.t
+
+type heredoc_redirect (* inlined *) = (
+    [ `LTLT of Token.t (* "<<" *) | `LTLTDASH of Token.t (* "<<-" *) ]
+  * heredoc_start (*tok*)
+)
 
 type array_ (* inlined *) = (
     Token.t (* "(" *)
@@ -536,100 +571,10 @@ type array_ (* inlined *) = (
   * Token.t (* ")" *)
 )
 
-type c_style_for_statement (* inlined *) = (
-    Token.t (* "for" *)
-  * Token.t (* "((" *)
-  * expression option
-  * terminator
-  * expression option
-  * terminator
-  * expression option
-  * Token.t (* "))" *)
-  * Token.t (* ";" *) option
-  * [ `Do_group of do_group | `Comp_stmt of compound_statement ]
-)
-
-type case_statement (* inlined *) = (
-    Token.t (* "case" *)
-  * literal
-  * terminator option
-  * Token.t (* "in" *)
-  * terminator
-  * (case_item list (* zero or more *) * last_case_item) option
-  * Token.t (* "esac" *)
-)
-
-type declaration_command (* inlined *) = (
-    [
-        `Decl of Token.t (* "declare" *)
-      | `Type of Token.t (* "typeset" *)
-      | `Export of Token.t (* "export" *)
-      | `Read of Token.t (* "readonly" *)
-      | `Local of Token.t (* "local" *)
-    ]
-  * [
-        `Choice_conc of literal
-      | `Choice_semg_meta of simple_variable_name
-      | `Var_assign of variable_assignment
-    ]
-      list (* zero or more *)
-)
-
-type for_statement (* inlined *) = (
-    [ `For of Token.t (* "for" *) | `Select of Token.t (* "select" *) ]
-  * simple_variable_name
-  * (Token.t (* "in" *) * literal list (* one or more *)) option
-  * terminator
-  * do_group
-)
-
-type function_definition (* inlined *) = (
-    [
-        `Func_exte_word_opt_LPAR_RPAR of (
-            Token.t (* "function" *)
-          * extended_word
-          * (Token.t (* "(" *) * Token.t (* ")" *)) option
-        )
-      | `Word_LPAR_RPAR of (
-            word (*tok*) * Token.t (* "(" *) * Token.t (* ")" *)
-        )
-    ]
-  * [
-        `Comp_stmt of compound_statement
-      | `Subs of subshell
-      | `Test_cmd of test_command
-    ]
-)
-
-type if_statement (* inlined *) = (
-    Token.t (* "if" *)
-  * terminated_statement
-  * Token.t (* "then" *)
-  * statements2 option
-  * elif_clause list (* zero or more *)
-  * else_clause option
-  * Token.t (* "fi" *)
-)
-
-type list_ (* inlined *) = (
-    statement
-  * [ `AMPAMP of Token.t (* "&&" *) | `BARBAR of Token.t (* "||" *) ]
-  * statement
-)
-
-type negated_command (* inlined *) = (
-    Token.t (* "!" *)
-  * [ `Cmd of command | `Test_cmd of test_command | `Subs of subshell ]
-)
+type herestring_redirect (* inlined *) = (Token.t (* "<<<" *) * literal)
 
 type parenthesized_expression (* inlined *) = (
     Token.t (* "(" *) * expression * Token.t (* ")" *)
-)
-
-type pipeline (* inlined *) = (
-    statement
-  * [ `BAR of Token.t (* "|" *) | `BARAMP of Token.t (* "|&" *) ]
-  * statement
 )
 
 type postfix_expression (* inlined *) = (
@@ -638,13 +583,8 @@ type postfix_expression (* inlined *) = (
 )
 
 type redirected_statement (* inlined *) = (
-    statement
-  * [
-        `File_redi of file_redirect
-      | `Here_redi_a9657de of heredoc_redirect
-      | `Here_redi_7d3292d of herestring_redirect
-    ]
-      list (* one or more *)
+    xstatement
+  * redirect list (* one or more *)
 )
 
 type semgrep_deep_expression (* inlined *) = (
@@ -659,16 +599,6 @@ type ternary_expression (* inlined *) = (
 type unary_expression (* inlined *) = (
     [ `BANG of Token.t (* "!" *) | `Test_op of test_operator (*tok*) ]
   * expression
-)
-
-type unset_command (* inlined *) = (
-    [ `Unset of Token.t (* "unset" *) | `Unse of Token.t (* "unsetenv" *) ]
-  * [ `Choice_conc of literal | `Choice_semg_meta of simple_variable_name ]
-      list (* zero or more *)
-)
-
-type while_statement (* inlined *) = (
-    Token.t (* "while" *) * terminated_statement * do_group
 )
 
 type extra = [ `Comment of Loc.t * comment ]
