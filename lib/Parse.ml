@@ -20,7 +20,6 @@ type mt = Run.matcher_token
 external create_parser :
   unit -> Tree_sitter_API.ts_parser = "octs_create_parser_bash"
 
-(* NOTE: Ok because we run one target per domain at any 1 time. *)
 let ts_parser = Domain.DLS.new_key create_parser
 
 let parse_source_string ?src_file contents =
@@ -331,6 +330,7 @@ let children_regexps : (string * Run.exp option) list = [
       Token (Name "command_name");
       Repeat (
         Alt [|
+          Token (Name "redirect");
           Alt [|
             Token (Name "concatenation");
             Alt [|
@@ -1223,34 +1223,20 @@ let children_regexps : (string * Run.exp option) list = [
       Token (Literal ")");
     ];
   );
+  "redirect",
+  Some (
+    Alt [|
+      Token (Name "file_redirect");
+      Token (Name "heredoc_redirect");
+      Token (Name "herestring_redirect");
+    |];
+  );
   "redirected_statement",
   Some (
     Seq [
-      Alt [|
-        Token (Name "redirected_statement");
-        Token (Name "variable_assignment");
-        Token (Name "command");
-        Token (Name "declaration_command");
-        Token (Name "unset_command");
-        Token (Name "test_command");
-        Token (Name "negated_command");
-        Token (Name "for_statement");
-        Token (Name "c_style_for_statement");
-        Token (Name "while_statement");
-        Token (Name "if_statement");
-        Token (Name "case_statement");
-        Token (Name "pipeline");
-        Token (Name "list");
-        Token (Name "subshell");
-        Token (Name "compound_statement");
-        Token (Name "function_definition");
-      |];
+      Token (Name "xstatement");
       Repeat1 (
-        Alt [|
-          Token (Name "file_redirect");
-          Token (Name "heredoc_redirect");
-          Token (Name "herestring_redirect");
-        |];
+        Token (Name "redirect");
       );
     ];
   );
@@ -1619,6 +1605,25 @@ let children_regexps : (string * Run.exp option) list = [
       Token (Name "terminated_statement");
       Token (Name "do_group");
     ];
+  );
+  "xstatement",
+  Some (
+    Alt [|
+      Token (Name "declaration_command");
+      Token (Name "unset_command");
+      Token (Name "test_command");
+      Token (Name "negated_command");
+      Token (Name "for_statement");
+      Token (Name "c_style_for_statement");
+      Token (Name "while_statement");
+      Token (Name "if_statement");
+      Token (Name "case_statement");
+      Token (Name "pipeline");
+      Token (Name "list");
+      Token (Name "subshell");
+      Token (Name "compound_statement");
+      Token (Name "function_definition");
+    |];
   );
   "program",
   Some (
@@ -2480,6 +2485,10 @@ and trans_command ((kind, body) : mt) : CST.command =
               (fun v ->
                 (match v with
                 | Alt (0, v) ->
+                    `Redi (
+                      trans_redirect (Run.matcher_token v)
+                    )
+                | Alt (1, v) ->
                     `Choice_conc (
                       (match v with
                       | Alt (0, v) ->
@@ -2547,7 +2556,7 @@ and trans_command ((kind, body) : mt) : CST.command =
                       | _ -> assert false
                       )
                     )
-                | Alt (1, v) ->
+                | Alt (2, v) ->
                     `Choice_EQTILDE_choice_choice_conc (
                       (match v with
                       | Seq [v0; v1] ->
@@ -5137,102 +5146,35 @@ and trans_process_substitution ((kind, body) : mt) : CST.process_substitution =
       )
   | Leaf _ -> assert false
 
+and trans_redirect ((kind, body) : mt) : CST.redirect =
+  match body with
+  | Children v ->
+      (match v with
+      | Alt (0, v) ->
+          `File_redi (
+            trans_file_redirect (Run.matcher_token v)
+          )
+      | Alt (1, v) ->
+          `Here_redi_a9657de (
+            trans_heredoc_redirect (Run.matcher_token v)
+          )
+      | Alt (2, v) ->
+          `Here_redi_7d3292d (
+            trans_herestring_redirect (Run.matcher_token v)
+          )
+      | _ -> assert false
+      )
+  | Leaf _ -> assert false
+
 and trans_redirected_statement ((kind, body) : mt) : CST.redirected_statement =
   match body with
   | Children v ->
       (match v with
       | Seq [v0; v1] ->
           (
-            (match v0 with
-            | Alt (0, v) ->
-                `Redi_stmt (
-                  trans_redirected_statement (Run.matcher_token v)
-                )
-            | Alt (1, v) ->
-                `Var_assign (
-                  trans_variable_assignment (Run.matcher_token v)
-                )
-            | Alt (2, v) ->
-                `Cmd (
-                  trans_command (Run.matcher_token v)
-                )
-            | Alt (3, v) ->
-                `Decl_cmd (
-                  trans_declaration_command (Run.matcher_token v)
-                )
-            | Alt (4, v) ->
-                `Unset_cmd (
-                  trans_unset_command (Run.matcher_token v)
-                )
-            | Alt (5, v) ->
-                `Test_cmd (
-                  trans_test_command (Run.matcher_token v)
-                )
-            | Alt (6, v) ->
-                `Nega_cmd (
-                  trans_negated_command (Run.matcher_token v)
-                )
-            | Alt (7, v) ->
-                `For_stmt (
-                  trans_for_statement (Run.matcher_token v)
-                )
-            | Alt (8, v) ->
-                `C_style_for_stmt (
-                  trans_c_style_for_statement (Run.matcher_token v)
-                )
-            | Alt (9, v) ->
-                `While_stmt (
-                  trans_while_statement (Run.matcher_token v)
-                )
-            | Alt (10, v) ->
-                `If_stmt (
-                  trans_if_statement (Run.matcher_token v)
-                )
-            | Alt (11, v) ->
-                `Case_stmt (
-                  trans_case_statement (Run.matcher_token v)
-                )
-            | Alt (12, v) ->
-                `Pipe (
-                  trans_pipeline (Run.matcher_token v)
-                )
-            | Alt (13, v) ->
-                `List (
-                  trans_list_ (Run.matcher_token v)
-                )
-            | Alt (14, v) ->
-                `Subs (
-                  trans_subshell (Run.matcher_token v)
-                )
-            | Alt (15, v) ->
-                `Comp_stmt (
-                  trans_compound_statement (Run.matcher_token v)
-                )
-            | Alt (16, v) ->
-                `Func_defi (
-                  trans_function_definition (Run.matcher_token v)
-                )
-            | _ -> assert false
-            )
-            ,
+            trans_xstatement (Run.matcher_token v0),
             Run.repeat1
-              (fun v ->
-                (match v with
-                | Alt (0, v) ->
-                    `File_redi (
-                      trans_file_redirect (Run.matcher_token v)
-                    )
-                | Alt (1, v) ->
-                    `Here_redi_a9657de (
-                      trans_heredoc_redirect (Run.matcher_token v)
-                    )
-                | Alt (2, v) ->
-                    `Here_redi_7d3292d (
-                      trans_herestring_redirect (Run.matcher_token v)
-                    )
-                | _ -> assert false
-                )
-              )
+              (fun v -> trans_redirect (Run.matcher_token v))
               v1
           )
       | _ -> assert false
@@ -6270,6 +6212,70 @@ and trans_while_statement ((kind, body) : mt) : CST.while_statement =
             Run.trans_token (Run.matcher_token v0),
             trans_terminated_statement (Run.matcher_token v1),
             trans_do_group (Run.matcher_token v2)
+          )
+      | _ -> assert false
+      )
+  | Leaf _ -> assert false
+
+and trans_xstatement ((kind, body) : mt) : CST.xstatement =
+  match body with
+  | Children v ->
+      (match v with
+      | Alt (0, v) ->
+          `Decl_cmd (
+            trans_declaration_command (Run.matcher_token v)
+          )
+      | Alt (1, v) ->
+          `Unset_cmd (
+            trans_unset_command (Run.matcher_token v)
+          )
+      | Alt (2, v) ->
+          `Test_cmd (
+            trans_test_command (Run.matcher_token v)
+          )
+      | Alt (3, v) ->
+          `Nega_cmd (
+            trans_negated_command (Run.matcher_token v)
+          )
+      | Alt (4, v) ->
+          `For_stmt (
+            trans_for_statement (Run.matcher_token v)
+          )
+      | Alt (5, v) ->
+          `C_style_for_stmt (
+            trans_c_style_for_statement (Run.matcher_token v)
+          )
+      | Alt (6, v) ->
+          `While_stmt (
+            trans_while_statement (Run.matcher_token v)
+          )
+      | Alt (7, v) ->
+          `If_stmt (
+            trans_if_statement (Run.matcher_token v)
+          )
+      | Alt (8, v) ->
+          `Case_stmt (
+            trans_case_statement (Run.matcher_token v)
+          )
+      | Alt (9, v) ->
+          `Pipe (
+            trans_pipeline (Run.matcher_token v)
+          )
+      | Alt (10, v) ->
+          `List (
+            trans_list_ (Run.matcher_token v)
+          )
+      | Alt (11, v) ->
+          `Subs (
+            trans_subshell (Run.matcher_token v)
+          )
+      | Alt (12, v) ->
+          `Comp_stmt (
+            trans_compound_statement (Run.matcher_token v)
+          )
+      | Alt (13, v) ->
+          `Func_defi (
+            trans_function_definition (Run.matcher_token v)
           )
       | _ -> assert false
       )
