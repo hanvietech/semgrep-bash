@@ -94,7 +94,12 @@ type simple_expansion = [
   | `Semg_named_ellips of semgrep_named_ellipsis (*tok*)
 ]
 
-type anon_choice_lit_bbf16c7 = [
+type anon_choice_lit_22a4acd = [
+    `Choice_conc of literal
+  | `BAR of Token.t (* "|" *)
+]
+
+and anon_choice_lit_bbf16c7 = [
     `Choice_conc of literal
   | `Array of (
         Token.t (* "(" *)
@@ -261,12 +266,12 @@ and expansion = (
     Token.t (* "${" *)
   * [ `HASH of Token.t (* "#" *) | `BANG of Token.t (* "!" *) ] option
   * [
-        `Var_name_EQ_opt_choice_conc of (
+        `Var_name_EQ_opt_choice_choice_conc of (
             variable_name (*tok*)
           * Token.t (* "=" *)
-          * literal option
+          * anon_choice_lit_22a4acd option
         )
-      | `Choice_subs_opt_tok_prec_p1_slash_opt_regex_rep_choice_choice_conc of (
+      | `Choice_subs_opt_tok_prec_p1_slash_opt_regex_rep_choice_choice_choice_conc of (
             [
                 `Subs of subscript
               | `Choice_semg_meta of simple_variable_name
@@ -274,7 +279,7 @@ and expansion = (
             ]
           * (tok_prec_p1_slash (*tok*) * regex (*tok*) option) option
           * [
-                `Choice_conc of literal
+                `Choice_choice_conc of anon_choice_lit_22a4acd
               | `COLON of Token.t (* ":" *)
               | `COLONQMARK of Token.t (* ":?" *)
               | `EQ of Token.t (* "=" *)

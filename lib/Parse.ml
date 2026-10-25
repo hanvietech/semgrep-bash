@@ -711,24 +711,27 @@ let children_regexps : (string * Run.exp option) list = [
             Token (Literal "=");
             Opt (
               Alt [|
-                Token (Name "concatenation");
                 Alt [|
-                  Token (Name "semgrep_deep_expression");
+                  Token (Name "concatenation");
                   Alt [|
-                    Token (Name "word");
-                    Token (Name "string");
-                    Token (Name "raw_string");
-                    Token (Name "ansii_c_string");
-                    Token (Name "expansion");
-                    Token (Name "simple_expansion");
-                    Token (Name "string_expansion");
-                    Token (Name "command_substitution");
-                    Token (Name "process_substitution");
+                    Token (Name "semgrep_deep_expression");
+                    Alt [|
+                      Token (Name "word");
+                      Token (Name "string");
+                      Token (Name "raw_string");
+                      Token (Name "ansii_c_string");
+                      Token (Name "expansion");
+                      Token (Name "simple_expansion");
+                      Token (Name "string_expansion");
+                      Token (Name "command_substitution");
+                      Token (Name "process_substitution");
+                    |];
                   |];
+                  Repeat1 (
+                    Token (Name "special_character");
+                  );
                 |];
-                Repeat1 (
-                  Token (Name "special_character");
-                );
+                Token (Literal "|");
               |];
             );
           ];
@@ -760,24 +763,27 @@ let children_regexps : (string * Run.exp option) list = [
             Repeat (
               Alt [|
                 Alt [|
-                  Token (Name "concatenation");
                   Alt [|
-                    Token (Name "semgrep_deep_expression");
+                    Token (Name "concatenation");
                     Alt [|
-                      Token (Name "word");
-                      Token (Name "string");
-                      Token (Name "raw_string");
-                      Token (Name "ansii_c_string");
-                      Token (Name "expansion");
-                      Token (Name "simple_expansion");
-                      Token (Name "string_expansion");
-                      Token (Name "command_substitution");
-                      Token (Name "process_substitution");
+                      Token (Name "semgrep_deep_expression");
+                      Alt [|
+                        Token (Name "word");
+                        Token (Name "string");
+                        Token (Name "raw_string");
+                        Token (Name "ansii_c_string");
+                        Token (Name "expansion");
+                        Token (Name "simple_expansion");
+                        Token (Name "string_expansion");
+                        Token (Name "command_substitution");
+                        Token (Name "process_substitution");
+                      |];
                     |];
+                    Repeat1 (
+                      Token (Name "special_character");
+                    );
                   |];
-                  Repeat1 (
-                    Token (Name "special_character");
-                  );
+                  Token (Literal "|");
                 |];
                 Token (Literal ":");
                 Token (Literal ":?");
@@ -3610,7 +3616,7 @@ and trans_expansion ((kind, body) : mt) : CST.expansion =
               (fun v ->
                 (match v with
                 | Alt (0, v) ->
-                    `Var_name_EQ_opt_choice_conc (
+                    `Var_name_EQ_opt_choice_choice_conc (
                       (match v with
                       | Seq [v0; v1; v2] ->
                           (
@@ -3620,66 +3626,76 @@ and trans_expansion ((kind, body) : mt) : CST.expansion =
                               (fun v ->
                                 (match v with
                                 | Alt (0, v) ->
-                                    `Conc (
-                                      trans_concatenation (Run.matcher_token v)
-                                    )
-                                | Alt (1, v) ->
-                                    `Choice_semg_deep_exp (
+                                    `Choice_conc (
                                       (match v with
                                       | Alt (0, v) ->
-                                          `Semg_deep_exp (
-                                            trans_semgrep_deep_expression (Run.matcher_token v)
+                                          `Conc (
+                                            trans_concatenation (Run.matcher_token v)
                                           )
                                       | Alt (1, v) ->
-                                          `Choice_word (
+                                          `Choice_semg_deep_exp (
                                             (match v with
                                             | Alt (0, v) ->
-                                                `Word (
-                                                  trans_word (Run.matcher_token v)
+                                                `Semg_deep_exp (
+                                                  trans_semgrep_deep_expression (Run.matcher_token v)
                                                 )
                                             | Alt (1, v) ->
-                                                `Str (
-                                                  trans_string_ (Run.matcher_token v)
-                                                )
-                                            | Alt (2, v) ->
-                                                `Raw_str (
-                                                  trans_raw_string (Run.matcher_token v)
-                                                )
-                                            | Alt (3, v) ->
-                                                `Ansii_c_str (
-                                                  trans_ansii_c_string (Run.matcher_token v)
-                                                )
-                                            | Alt (4, v) ->
-                                                `Expa (
-                                                  trans_expansion (Run.matcher_token v)
-                                                )
-                                            | Alt (5, v) ->
-                                                `Simple_expa (
-                                                  trans_simple_expansion (Run.matcher_token v)
-                                                )
-                                            | Alt (6, v) ->
-                                                `Str_expa (
-                                                  trans_string_expansion (Run.matcher_token v)
-                                                )
-                                            | Alt (7, v) ->
-                                                `Cmd_subs (
-                                                  trans_command_substitution (Run.matcher_token v)
-                                                )
-                                            | Alt (8, v) ->
-                                                `Proc_subs (
-                                                  trans_process_substitution (Run.matcher_token v)
+                                                `Choice_word (
+                                                  (match v with
+                                                  | Alt (0, v) ->
+                                                      `Word (
+                                                        trans_word (Run.matcher_token v)
+                                                      )
+                                                  | Alt (1, v) ->
+                                                      `Str (
+                                                        trans_string_ (Run.matcher_token v)
+                                                      )
+                                                  | Alt (2, v) ->
+                                                      `Raw_str (
+                                                        trans_raw_string (Run.matcher_token v)
+                                                      )
+                                                  | Alt (3, v) ->
+                                                      `Ansii_c_str (
+                                                        trans_ansii_c_string (Run.matcher_token v)
+                                                      )
+                                                  | Alt (4, v) ->
+                                                      `Expa (
+                                                        trans_expansion (Run.matcher_token v)
+                                                      )
+                                                  | Alt (5, v) ->
+                                                      `Simple_expa (
+                                                        trans_simple_expansion (Run.matcher_token v)
+                                                      )
+                                                  | Alt (6, v) ->
+                                                      `Str_expa (
+                                                        trans_string_expansion (Run.matcher_token v)
+                                                      )
+                                                  | Alt (7, v) ->
+                                                      `Cmd_subs (
+                                                        trans_command_substitution (Run.matcher_token v)
+                                                      )
+                                                  | Alt (8, v) ->
+                                                      `Proc_subs (
+                                                        trans_process_substitution (Run.matcher_token v)
+                                                      )
+                                                  | _ -> assert false
+                                                  )
                                                 )
                                             | _ -> assert false
                                             )
                                           )
+                                      | Alt (2, v) ->
+                                          `Rep1_spec_char (
+                                            Run.repeat1
+                                              (fun v -> trans_special_character (Run.matcher_token v))
+                                              v
+                                          )
                                       | _ -> assert false
                                       )
                                     )
-                                | Alt (2, v) ->
-                                    `Rep1_spec_char (
-                                      Run.repeat1
-                                        (fun v -> trans_special_character (Run.matcher_token v))
-                                        v
+                                | Alt (1, v) ->
+                                    `BAR (
+                                      Run.trans_token (Run.matcher_token v)
                                     )
                                 | _ -> assert false
                                 )
@@ -3690,7 +3706,7 @@ and trans_expansion ((kind, body) : mt) : CST.expansion =
                       )
                     )
                 | Alt (1, v) ->
-                    `Choice_subs_opt_tok_prec_p1_slash_opt_regex_rep_choice_choice_conc (
+                    `Choice_subs_opt_tok_prec_p1_slash_opt_regex_rep_choice_choice_choice_conc (
                       (match v with
                       | Seq [v0; v1; v2] ->
                           (
@@ -3769,69 +3785,79 @@ and trans_expansion ((kind, body) : mt) : CST.expansion =
                               (fun v ->
                                 (match v with
                                 | Alt (0, v) ->
-                                    `Choice_conc (
+                                    `Choice_choice_conc (
                                       (match v with
                                       | Alt (0, v) ->
-                                          `Conc (
-                                            trans_concatenation (Run.matcher_token v)
-                                          )
-                                      | Alt (1, v) ->
-                                          `Choice_semg_deep_exp (
+                                          `Choice_conc (
                                             (match v with
                                             | Alt (0, v) ->
-                                                `Semg_deep_exp (
-                                                  trans_semgrep_deep_expression (Run.matcher_token v)
+                                                `Conc (
+                                                  trans_concatenation (Run.matcher_token v)
                                                 )
                                             | Alt (1, v) ->
-                                                `Choice_word (
+                                                `Choice_semg_deep_exp (
                                                   (match v with
                                                   | Alt (0, v) ->
-                                                      `Word (
-                                                        trans_word (Run.matcher_token v)
+                                                      `Semg_deep_exp (
+                                                        trans_semgrep_deep_expression (Run.matcher_token v)
                                                       )
                                                   | Alt (1, v) ->
-                                                      `Str (
-                                                        trans_string_ (Run.matcher_token v)
-                                                      )
-                                                  | Alt (2, v) ->
-                                                      `Raw_str (
-                                                        trans_raw_string (Run.matcher_token v)
-                                                      )
-                                                  | Alt (3, v) ->
-                                                      `Ansii_c_str (
-                                                        trans_ansii_c_string (Run.matcher_token v)
-                                                      )
-                                                  | Alt (4, v) ->
-                                                      `Expa (
-                                                        trans_expansion (Run.matcher_token v)
-                                                      )
-                                                  | Alt (5, v) ->
-                                                      `Simple_expa (
-                                                        trans_simple_expansion (Run.matcher_token v)
-                                                      )
-                                                  | Alt (6, v) ->
-                                                      `Str_expa (
-                                                        trans_string_expansion (Run.matcher_token v)
-                                                      )
-                                                  | Alt (7, v) ->
-                                                      `Cmd_subs (
-                                                        trans_command_substitution (Run.matcher_token v)
-                                                      )
-                                                  | Alt (8, v) ->
-                                                      `Proc_subs (
-                                                        trans_process_substitution (Run.matcher_token v)
+                                                      `Choice_word (
+                                                        (match v with
+                                                        | Alt (0, v) ->
+                                                            `Word (
+                                                              trans_word (Run.matcher_token v)
+                                                            )
+                                                        | Alt (1, v) ->
+                                                            `Str (
+                                                              trans_string_ (Run.matcher_token v)
+                                                            )
+                                                        | Alt (2, v) ->
+                                                            `Raw_str (
+                                                              trans_raw_string (Run.matcher_token v)
+                                                            )
+                                                        | Alt (3, v) ->
+                                                            `Ansii_c_str (
+                                                              trans_ansii_c_string (Run.matcher_token v)
+                                                            )
+                                                        | Alt (4, v) ->
+                                                            `Expa (
+                                                              trans_expansion (Run.matcher_token v)
+                                                            )
+                                                        | Alt (5, v) ->
+                                                            `Simple_expa (
+                                                              trans_simple_expansion (Run.matcher_token v)
+                                                            )
+                                                        | Alt (6, v) ->
+                                                            `Str_expa (
+                                                              trans_string_expansion (Run.matcher_token v)
+                                                            )
+                                                        | Alt (7, v) ->
+                                                            `Cmd_subs (
+                                                              trans_command_substitution (Run.matcher_token v)
+                                                            )
+                                                        | Alt (8, v) ->
+                                                            `Proc_subs (
+                                                              trans_process_substitution (Run.matcher_token v)
+                                                            )
+                                                        | _ -> assert false
+                                                        )
                                                       )
                                                   | _ -> assert false
                                                   )
                                                 )
+                                            | Alt (2, v) ->
+                                                `Rep1_spec_char (
+                                                  Run.repeat1
+                                                    (fun v -> trans_special_character (Run.matcher_token v))
+                                                    v
+                                                )
                                             | _ -> assert false
                                             )
                                           )
-                                      | Alt (2, v) ->
-                                          `Rep1_spec_char (
-                                            Run.repeat1
-                                              (fun v -> trans_special_character (Run.matcher_token v))
-                                              v
+                                      | Alt (1, v) ->
+                                          `BAR (
+                                            Run.trans_token (Run.matcher_token v)
                                           )
                                       | _ -> assert false
                                       )

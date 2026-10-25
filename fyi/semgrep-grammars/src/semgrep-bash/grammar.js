@@ -17,6 +17,24 @@ module.exports = grammar(base_grammar, {
 
   rules: {
 
+    // A pipe in ${value#*|} is part of the expansion word, not a pipeline.
+    // Limit the extra token to expansions and reuse the existing word node so
+    // the generated OCaml CST can continue to consume it as a literal.
+    expansion: ($, previous) => {
+      const extendLiterals = rule => {
+        if (rule.type === 'SYMBOL' && rule.name === '_literal') {
+          return choice(rule, alias('|', $.word));
+        }
+        const result = {...rule};
+        if (rule.members) result.members = rule.members.map(extendLiterals);
+        if (rule.content) result.content = extendLiterals(rule.content);
+        return result;
+      };
+      return extendLiterals(previous);
+    },
+
+
+
     _orig_simple_variable_name: $ => alias(/\w+/, $.variable_name),
 
     // A variable name *not* immediately followed by '=' or '+='.

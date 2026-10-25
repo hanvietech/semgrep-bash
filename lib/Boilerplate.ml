@@ -176,7 +176,17 @@ let map_simple_expansion (env : env) (x : CST.simple_expansion) =
     )
   )
 
-let rec map_anon_choice_lit_bbf16c7 (env : env) (x : CST.anon_choice_lit_bbf16c7) =
+let rec map_anon_choice_lit_22a4acd (env : env) (x : CST.anon_choice_lit_22a4acd) =
+  (match x with
+  | `Choice_conc x -> R.Case ("Choice_conc",
+      map_literal env x
+    )
+  | `BAR tok -> R.Case ("BAR",
+      (* "|" *) token env tok
+    )
+  )
+
+and map_anon_choice_lit_bbf16c7 (env : env) (x : CST.anon_choice_lit_bbf16c7) =
   (match x with
   | `Choice_conc x -> R.Case ("Choice_conc",
       map_literal env x
@@ -600,19 +610,19 @@ and map_expansion (env : env) ((v1, v2, v3, v4) : CST.expansion) =
     (match v3 with
     | Some x -> R.Option (Some (
         (match x with
-        | `Var_name_EQ_opt_choice_conc (v1, v2, v3) -> R.Case ("Var_name_EQ_opt_choice_conc",
+        | `Var_name_EQ_opt_choice_choice_conc (v1, v2, v3) -> R.Case ("Var_name_EQ_opt_choice_choice_conc",
             let v1 = (* variable_name *) token env v1 in
             let v2 = (* "=" *) token env v2 in
             let v3 =
               (match v3 with
               | Some x -> R.Option (Some (
-                  map_literal env x
+                  map_anon_choice_lit_22a4acd env x
                 ))
               | None -> R.Option None)
             in
             R.Tuple [v1; v2; v3]
           )
-        | `Choice_subs_opt_tok_prec_p1_slash_opt_regex_rep_choice_choice_conc (v1, v2, v3) -> R.Case ("Choice_subs_opt_tok_prec_p1_slash_opt_regex_rep_choice_choice_conc",
+        | `Choice_subs_opt_tok_prec_p1_slash_opt_regex_rep_choice_choice_choice_conc (v1, v2, v3) -> R.Case ("Choice_subs_opt_tok_prec_p1_slash_opt_regex_rep_choice_choice_choice_conc",
             let v1 =
               (match v1 with
               | `Subs x -> R.Case ("Subs",
@@ -644,8 +654,8 @@ and map_expansion (env : env) ((v1, v2, v3, v4) : CST.expansion) =
             let v3 =
               R.List (List.map (fun x ->
                 (match x with
-                | `Choice_conc x -> R.Case ("Choice_conc",
-                    map_literal env x
+                | `Choice_choice_conc x -> R.Case ("Choice_choice_conc",
+                    map_anon_choice_lit_22a4acd env x
                   )
                 | `COLON tok -> R.Case ("COLON",
                     (* ":" *) token env tok
